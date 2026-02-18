@@ -1,8 +1,10 @@
 pub mod bash;
 pub mod command_tree;
+pub mod fish;
 pub mod parser;
 
 use bash::generate_bash_completion;
+use fish::generate_fish_completion;
 use parser::build_command_tree;
 use std::fs::File;
 use std::io::{self, BufWriter, Write};
@@ -15,7 +17,7 @@ fn print_usage() {
     eprintln!("  generate    Generate a shell completion script");
     eprintln!();
     eprintln!("Options:");
-    eprintln!("  --shell <SHELL>    Shell type: bash");
+    eprintln!("  --shell <SHELL>    Shell type: bash, fish");
     eprintln!("  --output <FILE>    Write to file instead of stdout");
     eprintln!("  --help             Show this help");
 }
@@ -78,8 +80,8 @@ fn main() {
         }
     };
 
-    if shell != "bash" {
-        eprintln!("Error: unsupported shell '{shell}'. Supported: bash");
+    if shell != "bash" && shell != "fish" {
+        eprintln!("Error: unsupported shell '{shell}'. Supported: bash, fish");
         process::exit(1);
     }
 
@@ -91,6 +93,14 @@ fn main() {
         }
     };
 
+    let generate = |writer: &mut dyn Write| -> io::Result<()> {
+        match shell.as_str() {
+            "bash" => generate_bash_completion(&tree, writer),
+            "fish" => generate_fish_completion(&tree, writer),
+            _ => unreachable!(),
+        }
+    };
+
     let result = match output {
         Some(path) => {
             let file = File::create(&path).unwrap_or_else(|e| {
@@ -98,14 +108,12 @@ fn main() {
                 process::exit(1);
             });
             let mut writer = BufWriter::new(file);
-            generate_bash_completion(&tree, &mut writer)
-                .and_then(|_| writer.flush())
+            generate(&mut writer).and_then(|_| writer.flush())
         }
         None => {
             let stdout = io::stdout();
             let mut writer = BufWriter::new(stdout.lock());
-            generate_bash_completion(&tree, &mut writer)
-                .and_then(|_| writer.flush())
+            generate(&mut writer).and_then(|_| writer.flush())
         }
     };
 

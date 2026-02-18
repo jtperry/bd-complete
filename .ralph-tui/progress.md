@@ -6,6 +6,7 @@
 - **Top-level vs subcommand help**: At root level, cobra puts all flags under `Flags:`. Subcommands split into `Flags:` (local) and `Global Flags:` (inherited).
 - **Value type detection**: Cobra flag value types appear as a single lowercase word after the `--flag` name (e.g., `--db string`). Boolean flags have no value type token.
 - **Shellcheck compliance**: Use `mapfile -t COMPREPLY < <(compgen ...)` instead of `COMPREPLY=( $(compgen ...) )` to avoid SC2207. Bash case patterns with spaces must be quoted (e.g., `"dep add"`).
+- **Fish completion conventions**: Use `complete -c <cmd> -f` to disable default file completions. Subcommand conditions use `__fish_seen_subcommand_from`. Flags use `-l` (long), `-s` (short), `-r` (requires argument), `-F` (force file completion for file-like flags). Descriptions go in `-d 'desc'`.
 
 ---
 
@@ -34,4 +35,17 @@
   - The completion script uses `_init_completion` from bash-completion, which provides `cur`, `prev`, `words`, `cword` variables.
   - For flag value completion, file-like flags (containing "file", "path", or named "db") use `compgen -f` for filesystem completion; other typed flags return empty COMPREPLY.
   - Aliases are handled by generating alternate case patterns (e.g., `create|new)`).
+---
+
+## 2026-02-18 - US-004
+- **What was implemented**: Fish completion script generator that produces `complete -c bd` commands from the parsed CommandTree. Updated CLI to accept `--shell fish`.
+- **Files changed**:
+  - `src/fish.rs` — New module: `generate_fish_completion()` produces Fish completion commands with Apache 2.0 header, command/subcommand/flag completions with descriptions, alias support, and proper conditions using `__fish_seen_subcommand_from`. 10 unit tests.
+  - `src/main.rs` — Updated to register `fish` module, accept `--shell fish`, and dispatch to `generate_fish_completion()`.
+- **Learnings:**
+  - Fish completions are declarative (`complete -c cmd` lines) rather than imperative (like Bash functions). Each completion is a separate `complete` command.
+  - `complete -c cmd -f` disables default file completions globally for the command. File completion can be re-enabled per-flag with `-F`.
+  - Fish's `__fish_seen_subcommand_from` builtin handles subcommand context detection, replacing the manual word-walking needed in Bash.
+  - Flag `-r` marks a flag as requiring an argument (equivalent to Bash's flag value completion). `-F` forces file completion for that specific flag.
+  - Single quotes in descriptions need escaping (`\'`) for Fish shell syntax.
 ---
